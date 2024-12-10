@@ -1,0 +1,19 @@
+<template>
+    test 1
+    <table class="custom-table">
+        <thead>
+            <tr>
+                <th>Fields</th>
+                <th>Values</th>
+            </tr>
+        </thead>
+        <tbody>
+            <template for:each={fieldMap} for:item="field" >
+                <tr key={field.key}>
+                    <td>{field.key}</td>
+                    <td>{field.value}</td>
+                </tr>
+            </template>
+        </tbody>
+    </table>
+</template>
