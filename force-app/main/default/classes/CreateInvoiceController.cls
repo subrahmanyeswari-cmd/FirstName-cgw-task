@@ -24,33 +24,15 @@ public class CreateInvoiceController {
 		}
 		for(String param : params.values()){
 			if(param != 'Invoice_Line_Items__r'){
-				if(param != 'Line_Description__c' && param != 'Quantity__c' && param != 'Unit_Price__c' ){
 					query = query + ',' + param;
-				}
-				else{
-					lineItemQuery = lineItemquery + ',' + param;
-				}
 			}
 			
 		}
 		query = query + ' FROM Opportunity WHERE Id = :recordId';
-		system.debug('query == '+query);
 		Opportunity opp = Database.query(query);
 
-		lineItemQuery = 'Select Id,Opportunity__c ,(' +lineItemQuery + ' FROM Invoice_Line_Items__r) FROM Invoice__c WHERE Opportunity__c = :recordId';
-		system.debug('lin -- '+lineItemQuery);
-		List<Invoice__c> invoiceList = Database.query(lineItemQuery);
-		Map<Id,Invoice_Line_Item__c> lineItemMap = new Map<Id,Invoice_Line_Item__c>();
-
-		for(Invoice__c inv : invoiceList){
-		//	lineItemMap.put(inv.Id);
-			for(Invoice_Line_Item__c item : inv.Invoice_Line_Items__r){
-				lineItemMap.put(recordId,item);
-			}
-		}
 		Date createdDate1 = opp.CreatedDate.date();
-		String invoiceDate = opp.CloseDate.format();
-		
+		String invoiceDate = opp.CloseDate.format();		
 		String invoiceDueDate =createdDate1.format();
 		Map<String,String> response = new Map<String,String>();
 		response.put('orgin_record',recordId);
@@ -58,19 +40,88 @@ public class CreateInvoiceController {
 		response.put('invoice_date',invoiceDate);
 		response.put('invoice_due_date',invoiceDueDate);
 		response.put('child_relationship_name',childObj);
-		system.debug('map -- '+lineItemMap);
-		response.put('line_item_description',lineItemMap.get(opp.id).Line_Description__c);
-		response.put('line_item_quantity',String.valueOf(lineItemMap.get(opp.Id).Quantity__c));
-		response.put('line_item_unit_price', String.valueOf(lineItemMap.get(opp.Id).Unit_Price__c));
+		response.put('line_item_description',opp.Description);
+		response.put('line_item_quantity',String.valueOf(opp.TotalOpportunityQuantity));
+		response.put('line_item_unit_price', String.valueOf(opp.Unit__c));
 		
-
-
-		system.debug('item - '+query);
-
 		return response;
-
-
 	}
+
+	@AuraEnabled
+	public static String createJSON(String recordId){
+		system.debug('rec -- '+recordId);
+		Opportunity opp = [Select Id,Account.Name,CreatedDate,CloseDate,Unit__c,Description,TotalOpportunityQuantity From Opportunity WHere Id = :recordId];
+		 LineItem lineItem = new LineItem(
+                opp.Description,
+                String.valueOf(opp.TotalOpportunityQuantity),  
+                String.valueOf(opp.Unit__c), 
+                '200', 
+                '20' 
+            );
+			 ContactValue contactVal = new ContactValue('eaa28f49-6028-4b6e-bb12-d8f6278073fc');
+		List<LineItem> lineItemList = new List<LineItem>{lineItem};
+		jsonWrapper wrap = new jsonWrapper('ACCREC'
+											,contactVal 
+											,String.valueOf(opp.CreatedDate)
+											,String.valueOf(opp.CreatedDate)
+											,String.valueOf(opp.CloseDate)
+											,String.valueOf(opp.CloseDate)
+											,'Exclusive'
+										, lineItemList );
+										
+		String jsonString = JSON.serialize(wrap);
+		return jsonString;
+		
+	}
+
+	public class jsonWrapper {
+    public String Type;
+    public ContactValue ContactVal;
+    public String DateValue;
+    public String DateString;
+    public String DueDate;
+    public String DueDateString;
+    public String LineAmountTypes;
+    public List<LineItem> LineItems;
+    
+    
+    public jsonWrapper(String typeVal , ContactValue contactVal, String dateValue, String dateString, String dueDate, String dueDateString, String lineAmountTypes, List<LineItem> lineItems) {
+        this.Type = typeVal;
+        this.ContactVal= contactVal;
+     	this.DateValue = dateValue;
+        this.DateString = dateString;
+        this.DueDate = dueDate;
+        this.DueDateString = dueDateString;
+      	this.LineAmountTypes = lineAmountTypes;
+        this.LineItems = lineItems; 
+    }
+}
+
+public class LineItem {
+    public String Description;
+    public String Quantity;
+    public String UnitAmount;
+    public String AccountCode;
+    public String DiscountRate;
+    
+  
+    public LineItem(String description, String quantity, String unitAmount, String accountCode, String discountRate) {
+        this.Description = description;
+        this.Quantity = quantity;
+        this.UnitAmount = unitAmount;
+        this.AccountCode = accountCode;
+        this.DiscountRate = discountRate;
+    }
+}
+
+public class ContactValue {
+    public String ContactID;
+   
+    public ContactValue(String contactID) {
+        this.ContactID = contactID;
+    }
+}
+
 	
 	
 }
